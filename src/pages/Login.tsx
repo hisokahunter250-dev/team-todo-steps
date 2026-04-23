@@ -20,20 +20,30 @@ export default function Login() {
 
   useEffect(() => {
     // already logged in?
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) nav("/", { replace: true });
-    });
-    // any admin yet? (use edge function with service role to bypass RLS)
-    supabase.functions
-      .invoke("admin-users", { body: { action: "has_any_admin" } })
-      .then(({ data }) => {
-        const hasAdmin = !!(data as any)?.has_admin;
-        setNeedsBootstrap(!hasAdmin);
-        if (!hasAdmin) setBootstrapMode(true);
-      })
-      .catch(() => {
-        setNeedsBootstrap(false);
+    (async () => {
+      // Validate session — clear stale/corrupt tokens (e.g. from old project)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { error: uErr } = await supabase.auth.getUser();
+        if (uErr) {
+          await supabase.auth.signOut();
+        } else {
+          nav("/", { replace: true });
+          return;
+        }
+      }
+      // any admin yet? (use edge function with service role to bypass RLS)
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "has_any_admin" },
       });
+      if (error || (data as any)?.error) {
+        setNeedsBootstrap(false);
+        return;
+      }
+      const hasAdmin = !!(data as any)?.has_admin;
+      setNeedsBootstrap(!hasAdmin);
+      if (!hasAdmin) setBootstrapMode(true);
+    })();
   }, [nav]);
 
   async function handleLogin(e: React.FormEvent) {
