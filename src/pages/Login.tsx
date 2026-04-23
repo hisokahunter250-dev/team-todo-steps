@@ -23,15 +23,16 @@ export default function Login() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) nav("/", { replace: true });
     });
-    // any admin yet?
-    supabase
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin")
-      .then(({ count }) => {
-        const empty = (count ?? 0) === 0;
-        setNeedsBootstrap(empty);
-        if (empty) setBootstrapMode(true);
+    // any admin yet? (use edge function with service role to bypass RLS)
+    supabase.functions
+      .invoke("admin-users", { body: { action: "has_any_admin" } })
+      .then(({ data }) => {
+        const hasAdmin = !!(data as any)?.has_admin;
+        setNeedsBootstrap(!hasAdmin);
+        if (!hasAdmin) setBootstrapMode(true);
+      })
+      .catch(() => {
+        setNeedsBootstrap(false);
       });
   }, [nav]);
 
