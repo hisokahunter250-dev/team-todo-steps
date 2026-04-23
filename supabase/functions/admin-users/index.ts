@@ -32,6 +32,16 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = body.action as string;
 
+    // ---------- PUBLIC: check if any admin exists ----------
+    if (action === "has_any_admin") {
+      const { count, error: cErr } = await admin
+        .from("user_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "admin");
+      if (cErr) return json({ error: cErr.message }, 500);
+      return json({ has_admin: (count ?? 0) > 0 });
+    }
+
     // ---------- BOOTSTRAP: create first admin if none exists ----------
     if (action === "bootstrap_admin") {
       const { username, password, display_name } = body;
