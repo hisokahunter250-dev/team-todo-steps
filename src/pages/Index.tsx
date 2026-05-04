@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
-import { Plus, Users as UsersIcon, Loader2, Clock, CheckCircle2, Circle, ListChecks } from "lucide-react";
+import { Plus, Users as UsersIcon, Loader2, Clock, CheckCircle2, Circle, ListChecks, Search, RefreshCw } from "lucide-react";
 
 interface Profile { id: string; username: string; display_name: string }
 interface TaskRow {
@@ -19,6 +19,7 @@ interface TaskRow {
   visibility: "shared" | "assigned"; is_completed: boolean;
   completed_by: string | null; completed_at: string | null;
   created_by: string; last_activity_at: string; created_at: string;
+  is_monthly: boolean;
 }
 interface TaskWithMeta extends TaskRow {
   assignees: string[]; // user ids
@@ -40,6 +41,7 @@ function TasksDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "open" | "done" | "mine">("all");
   const [showNew, setShowNew] = useState(false);
+  const [search, setSearch] = useState("");
 
   async function refresh() {
     setLoading(true);
@@ -70,6 +72,10 @@ function TasksDashboard() {
   useEffect(() => { refresh(); }, []);
 
   const filtered = tasks.filter((t) => {
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      if (!t.title.toLowerCase().includes(q) && !(t.description ?? "").toLowerCase().includes(q)) return false;
+    }
     if (filter === "open") return !t.is_completed;
     if (filter === "done") return t.is_completed;
     if (filter === "mine") return t.assignees.includes(user?.id ?? "") || t.created_by === user?.id;
@@ -94,6 +100,16 @@ function TasksDashboard() {
           onCreated={() => { setShowNew(false); refresh(); }}
         />
       )}
+
+      <div className="relative">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="ابحث في المهام…"
+          className="pr-10"
+        />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {(["all", "open", "done", "mine"] as const).map((f) => (
@@ -130,6 +146,7 @@ function NewTaskCard({ profiles, onCreated }: { profiles: Profile[]; onCreated: 
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"shared" | "assigned">("shared");
   const [assignees, setAssignees] = useState<string[]>([]);
+  const [isMonthly, setIsMonthly] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
@@ -141,6 +158,7 @@ function NewTaskCard({ profiles, onCreated }: { profiles: Profile[]; onCreated: 
       description: description.trim() || null,
       visibility,
       created_by: user.id,
+      is_monthly: isMonthly,
     }).select().single();
     if (error || !data) {
       setBusy(false);
@@ -175,6 +193,17 @@ function NewTaskCard({ profiles, onCreated }: { profiles: Profile[]; onCreated: 
                   {v === "shared" ? "مشتركة" : "مُسندة"}
                 </Button>
               ))}
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setIsMonthly((v) => !v)}
+                className={`text-xs inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors ${
+                  isMonthly ? "bg-accent text-accent-foreground border-accent" : "border-border hover:bg-secondary/60"
+                }`}
+              >
+                <RefreshCw className="w-3 h-3" /> تتجدّد شهرياً
+              </button>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -231,6 +260,11 @@ function TaskCard({ task, profiles }: { task: TaskWithMeta; profiles: Profile[] 
                 <Badge variant="outline" className="gap-1"><UsersIcon className="w-3 h-3" /> مُسندة</Badge>
               ) : (
                 <Badge variant="outline">مشتركة</Badge>
+              )}
+              {task.is_monthly && (
+                <Badge className="bg-accent/15 text-accent border-accent/30 gap-1">
+                  <RefreshCw className="w-3 h-3" /> شهرية
+                </Badge>
               )}
               {task.is_completed && completer && (
                 <Badge className="bg-success/15 text-success border-success/30">منجزة بواسطة {completer.display_name}</Badge>
