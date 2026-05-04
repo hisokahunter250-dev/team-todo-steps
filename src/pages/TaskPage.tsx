@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowRight, CheckCircle2, Circle, ListChecks, MessageSquare, Plus,
-  Trash2, Users as UsersIcon, RotateCcw, Clock,
+  Trash2, Users as UsersIcon, RotateCcw, Clock, RefreshCw,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Profile { id: string; username: string; display_name: string }
 interface Task {
@@ -25,8 +26,9 @@ interface Task {
   visibility: "shared" | "assigned"; is_completed: boolean;
   completed_by: string | null; completed_at: string | null;
   created_by: string; last_activity_at: string; created_at: string;
+  is_monthly: boolean; last_reset_at: string | null;
 }
-interface Step { id: string; task_id: string; content: string; done_by: string; created_at: string }
+interface Step { id: string; task_id: string; content: string; done_by: string; created_at: string; is_done: boolean }
 interface Comment { id: string; task_id: string; content: string; author_id: string; created_at: string }
 
 export default function TaskPage() {
@@ -85,6 +87,20 @@ function TaskDetail() {
   async function deleteStep(stepId: string) {
     const { error } = await supabase.from("task_steps").delete().eq("id", stepId);
     if (error) { toast({ title: "تعذّر الحذف", description: error.message, variant: "destructive" }); return; }
+    load();
+  }
+
+  async function toggleStepDone(s: Step) {
+    const { error } = await supabase.from("task_steps").update({ is_done: !s.is_done }).eq("id", s.id);
+    if (error) { toast({ title: "تعذّر التحديث", description: error.message, variant: "destructive" }); return; }
+    load();
+  }
+
+  async function resetMonthly() {
+    if (!task) return;
+    const { error } = await supabase.rpc("reset_monthly_task", { _task_id: task.id });
+    if (error) { toast({ title: "تعذّر التجديد", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "تم تجديد المهمة" });
     load();
   }
 
@@ -168,6 +184,11 @@ function TaskDetail() {
               <Badge variant={task.visibility === "assigned" ? "default" : "outline"} className="gap-1">
                 <UsersIcon className="w-3 h-3" /> {task.visibility === "assigned" ? "مُسندة" : "مشتركة"}
               </Badge>
+              {task.is_monthly && (
+                <Badge className="bg-accent/15 text-accent border-accent/30 gap-1">
+                  <RefreshCw className="w-3 h-3" /> تتجدّد شهرياً
+                </Badge>
+              )}
               <Badge variant="secondary" className="gap-1">
                 <Clock className="w-3 h-3" /> آخر إجراء: {fmtDate(task.last_activity_at)}
               </Badge>
@@ -196,6 +217,11 @@ function TaskDetail() {
             <Button variant={task.is_completed ? "outline" : "success"} size="sm" onClick={toggleComplete}>
               {task.is_completed ? <><RotateCcw className="w-4 h-4" /> إعادة فتح</> : <><CheckCircle2 className="w-4 h-4" /> إنهاء</>}
             </Button>
+            {task.is_monthly && canManage && (
+              <Button variant="outline" size="sm" onClick={resetMonthly}>
+                <RefreshCw className="w-4 h-4" /> تجديد شهري
+              </Button>
+            )}
             {canManage && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -236,11 +262,17 @@ function TaskDetail() {
               const canDel = s.done_by === user?.id || isAdmin;
               return (
                 <li key={s.id} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/40 group">
+                  <Checkbox
+                    checked={s.is_done}
+                    onCheckedChange={() => toggleStepDone(s)}
+                    className="mt-1"
+                    aria-label="تم تنفيذ الخطوة"
+                  />
                   <div className="shrink-0 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
                     {idx + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="whitespace-pre-wrap break-words">{s.content}</p>
+                    <p className={`whitespace-pre-wrap break-words ${s.is_done ? "line-through text-muted-foreground" : ""}`}>{s.content}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       <span className="font-semibold text-foreground">{author?.display_name ?? "—"}</span> • {fmtDate(s.created_at)}
                     </p>
