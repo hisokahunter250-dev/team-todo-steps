@@ -209,6 +209,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_monthly_task: { Args: { _task_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
