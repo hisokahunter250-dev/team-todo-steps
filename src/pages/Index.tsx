@@ -20,6 +20,7 @@ interface TaskRow {
   completed_by: string | null; completed_at: string | null;
   created_by: string; last_activity_at: string; created_at: string;
   is_monthly: boolean;
+  last_reset_at: string | null;
 }
 interface TaskWithMeta extends TaskRow {
   assignees: string[]; // user ids
@@ -59,10 +60,11 @@ function TasksDashboard() {
       const ref = tk.last_reset_at ?? tk.created_at;
       return ym(new Date(ref)) !== ym(now);
     });
+    let tasksData = (t as TaskRow[]) ?? [];
     if (toReset.length) {
       await Promise.all(toReset.map((tk) => supabase.rpc("reset_monthly_task", { _task_id: tk.id })));
       const { data: t2 } = await supabase.from("tasks").select("*").order("last_activity_at", { ascending: false });
-      if (t2) (t as any) = t2;
+      tasksData = (t2 as TaskRow[]) ?? tasksData;
     }
     setProfiles((p as Profile[]) ?? []);
     const stepCounts = new Map<string, number>();
@@ -73,7 +75,7 @@ function TasksDashboard() {
       arr.push(row.user_id);
       assigneesByTask.set(row.task_id, arr);
     });
-    const merged: TaskWithMeta[] = ((t as TaskRow[]) ?? []).map((tk) => ({
+    const merged: TaskWithMeta[] = tasksData.map((tk) => ({
       ...tk,
       assignees: assigneesByTask.get(tk.id) ?? [],
       step_count: stepCounts.get(tk.id) ?? 0,
