@@ -51,6 +51,19 @@ function TasksDashboard() {
       supabase.from("task_assignees").select("task_id, user_id"),
       supabase.from("task_steps").select("task_id"),
     ]);
+    // Auto-reset monthly tasks whose last reset isn't this month
+    const now = new Date();
+    const ym = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
+    const toReset = ((t as TaskRow[]) ?? []).filter((tk) => {
+      if (!tk.is_monthly) return false;
+      const ref = tk.last_reset_at ?? tk.created_at;
+      return ym(new Date(ref)) !== ym(now);
+    });
+    if (toReset.length) {
+      await Promise.all(toReset.map((tk) => supabase.rpc("reset_monthly_task", { _task_id: tk.id })));
+      const { data: t2 } = await supabase.from("tasks").select("*").order("last_activity_at", { ascending: false });
+      if (t2) (t as any) = t2;
+    }
     setProfiles((p as Profile[]) ?? []);
     const stepCounts = new Map<string, number>();
     (s ?? []).forEach((row: any) => stepCounts.set(row.task_id, (stepCounts.get(row.task_id) ?? 0) + 1));
