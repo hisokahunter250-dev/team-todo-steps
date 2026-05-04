@@ -102,6 +102,7 @@ export type Database = {
           created_at: string
           done_by: string
           id: string
+          is_done: boolean
           task_id: string
         }
         Insert: {
@@ -109,6 +110,7 @@ export type Database = {
           created_at?: string
           done_by: string
           id?: string
+          is_done?: boolean
           task_id: string
         }
         Update: {
@@ -116,6 +118,7 @@ export type Database = {
           created_at?: string
           done_by?: string
           id?: string
+          is_done?: boolean
           task_id?: string
         }
         Relationships: [
@@ -137,7 +140,9 @@ export type Database = {
           description: string | null
           id: string
           is_completed: boolean
+          is_monthly: boolean
           last_activity_at: string
+          last_reset_at: string | null
           title: string
           visibility: Database["public"]["Enums"]["task_visibility"]
         }
@@ -149,7 +154,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_completed?: boolean
+          is_monthly?: boolean
           last_activity_at?: string
+          last_reset_at?: string | null
           title: string
           visibility?: Database["public"]["Enums"]["task_visibility"]
         }
@@ -161,7 +168,9 @@ export type Database = {
           description?: string | null
           id?: string
           is_completed?: boolean
+          is_monthly?: boolean
           last_activity_at?: string
+          last_reset_at?: string | null
           title?: string
           visibility?: Database["public"]["Enums"]["task_visibility"]
         }
@@ -200,6 +209,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_monthly_task: { Args: { _task_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
